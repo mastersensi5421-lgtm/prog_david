@@ -17,34 +17,51 @@ jobs:
       - name: rodar os testes visiveis
         run: |
           set +e
-          pytest -q --tb=line > /tmp/saida.txt 2>&1
-          codigo=$?
+          : > /tmp/saida.txt
+          geral=0
+          encontrou=0
+
+          # Uma pasta por vez, cada uma no proprio processo.
+          # Rodar pytest na raiz quebra: os varios exercicios.py disputam
+          # o mesmo nome de modulo e a coleta e interrompida.
+          for d in aula* lista*; do
+            ls "$d"/test_*.py >/dev/null 2>&1 || continue
+            encontrou=1
+            echo "===== $d =====" >> /tmp/saida.txt
+            (cd "$d" && pytest -q --tb=line -p no:cacheprovider) >> /tmp/saida.txt 2>&1
+            c=$?
+            if [ $c -ne 0 ] && [ $c -ne 5 ]; then geral=1; fi
+            echo "" >> /tmp/saida.txt
+          done
+
           cat /tmp/saida.txt
 
           echo "## Resultado dos testes visiveis" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          if [ $codigo -eq 5 ]; then
+          if [ $encontrou -eq 0 ]; then
             echo "Nenhum teste encontrado ainda. Isso e normal no comeco do trimestre." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          placar=$(grep -Eo '[0-9]+ (passed|failed)(, [0-9]+ (passed|failed))*' /tmp/saida.txt | tail -1)
-          echo "### $placar" >> "$GITHUB_STEP_SUMMARY"
+          passou=$(grep -Eo '[0-9]+ passed' /tmp/saida.txt | awk '{s+=$1} END {print s+0}')
+          falhou=$(grep -Eo '[0-9]+ failed' /tmp/saida.txt | awk '{s+=$1} END {print s+0}')
+
+          echo "### $passou passaram, $falhou falharam" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -n 25 /tmp/saida.txt >> "$GITHUB_STEP_SUMMARY"
+          tail -n 60 /tmp/saida.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          if [ $codigo -eq 0 ]; then
+          if [ $geral -eq 0 ]; then
             echo "**Verde.** Todos os testes visiveis passaram." >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Lembre: passar aqui nao garante nota cheia. A correcao usa tambem testes que voce nao ve, com os casos dificeis." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "**Vermelho, e isso e esperado ate voce terminar.**" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Nao ha nada quebrado no repositorio. Vermelho aqui quer dizer apenas que alguma funcao ainda nao foi implementada, ou que a implementacao ainda erra algum caso. Leia as linhas acima: cada uma diz qual teste falhou e qual valor saiu." >> "$GITHUB_STEP_SUMMARY"
+            echo "Nao ha nada quebrado no repositorio. Vermelho aqui quer dizer apenas que alguma funcao ainda nao foi implementada, ou que a implementacao ainda erra algum caso. Leia as linhas acima: cada bloco ===== e uma pasta de aula, e cada linha diz qual teste falhou e qual valor saiu." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          exit $codigo
+          exit $geral
