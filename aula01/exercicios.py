@@ -23,14 +23,15 @@ def conta_pares(lista):
 def maior_valor(lista):
     maior = lista[0]
     for n in lista:
-        if maior > n:
+        if n > maior:
             maior = n
-    return maior    
+    return maior
 
 
 def existe(lista, alvo):
     for n in lista:
-        return True
+        if n == alvo:
+            return True
     return False
 
 
@@ -38,21 +39,18 @@ def busca_linear(lista, alvo):
     for i in range(len(lista)):
         if lista[i] == alvo:
             return i
-    return -1 
+    return -1
 
 
 def segundo_maior(lista):
-    if len(lista) < 2:
-        return None
-
     maior = float('-inf')
     segundo = float('-inf')
 
     for numero in lista:
-        if numero > maior:
+        if numero >= maior:
             segundo = maior
             maior = numero
-        elif numero > segundo and numero != maior:
+        elif numero > segundo:
             segundo = numero
 
-    return segundo if segundo != float('-inf') else None
+    return segundo
